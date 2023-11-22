@@ -1,59 +1,75 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 
-public class NoteGenerator : MonoBehaviour
-{
-    //private SheetManager sheet;
+public class NoteGenerator : MonoBehaviour {
+    private const int NOTE_POOL_INIT_SIZE = 30;
+    private static int notePoolHead = 0;
 
-    public GameObject notePrefab;
-    public enum DIRECTION { NORTH, EAST, SOUTH, WEST };
+    public static GameObject notePrefab;
+    private static RectTransform parentNote;
+    private static List<Note> notePool = new List<Note>();
 
-    private Dictionary<DIRECTION, Vector2> spawnPoints = new Dictionary<DIRECTION, Vector2>();
+    public static readonly Dictionary<DIRECTION, Vector2> spawnPoints = new Dictionary<DIRECTION, Vector2>();
+    
 
-    [SerializeField]
-    private const int NOTE_POOL_INIT_SIZE = 50;
-    private int notePoolHead = 0;
-    private RectTransform parentNote;
-    private List<RectTransform> notePool = new List<RectTransform>();
 
     void Start() {
         initializeSpawnPoint();
         initializeNotePool();
+        StartCoroutine("ActiveNotePerSecond");
     }
 
     private void initializeSpawnPoint() {
-        spawnPoints.Add(DIRECTION.NORTH, GameObject.Find("N").GetComponent<RectTransform>().anchoredPosition);
-        spawnPoints.Add(DIRECTION.SOUTH, GameObject.Find("S").GetComponent<RectTransform>().anchoredPosition);
-        spawnPoints.Add(DIRECTION.EAST, GameObject.Find("E").GetComponent<RectTransform>().anchoredPosition);
-        spawnPoints.Add(DIRECTION.WEST, GameObject.Find("W").GetComponent<RectTransform>().anchoredPosition);
+        spawnPoints.Add(DIRECTION.NORTH, GameObject.FindWithTag("NORTH").GetComponent<RectTransform>().anchoredPosition);
+        spawnPoints.Add(DIRECTION.SOUTH, GameObject.FindWithTag("SOUTH").GetComponent<RectTransform>().anchoredPosition);
+        spawnPoints.Add(DIRECTION.EAST, GameObject.FindWithTag("EAST").GetComponent<RectTransform>().anchoredPosition);
+        spawnPoints.Add(DIRECTION.WEST, GameObject.FindWithTag("WEST").GetComponent<RectTransform>().anchoredPosition);
     }
 
     private void initializeNotePool() {
         parentNote = GameObject.Find("/Canvas/Notes").GetComponent<RectTransform>();
+        notePrefab = parentNote.GetChild(0).gameObject;
         while (notePool.Count < NOTE_POOL_INIT_SIZE) {
             notePool.Add(createNote());
         }
     }
 
-    private RectTransform createNote() {
-        RectTransform note = Instantiate(notePrefab).GetComponent<RectTransform>();
+    
+
+    private static Note createNote() {
+        Note note = Instantiate(notePrefab).GetComponent<Note>();
         note.gameObject.SetActive(false);
-        note.SetParent(parentNote);
+        note.transform.SetParent(parentNote);
+        note.onAwake();
         return note;
     }
 
-    private RectTransform getNote()
-    {
-        RectTransform note = notePool[notePoolHead];
+    public static Note activeNote(DIRECTION dir) {
+        Note note = notePool[notePoolHead];
+
         if (note.gameObject.activeSelf) {
             note = createNote();
             notePool.Insert(notePoolHead, note);
         }
 
         notePoolHead = (notePoolHead + 1) % notePool.Count;
+
+        note.onStart(dir);
         return note;
+    }
+
+    IEnumerator ActiveNotePerSecond() {
+        while(true) {
+            activeNote(DIRECTION.NORTH);
+            yield return new WaitForSeconds(0.25f);
+            activeNote(DIRECTION.EAST);
+            yield return new WaitForSeconds(0.25f);
+            activeNote(DIRECTION.SOUTH);
+            yield return new WaitForSeconds(0.25f);
+            activeNote(DIRECTION.WEST);
+            yield return new WaitForSeconds(0.25f);
+        }
     }
 }
